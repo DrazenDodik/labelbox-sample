@@ -150,12 +150,14 @@ def get_labels(project_id):
     return response
 
 
-# # Object detection example
-PROJECT_ID=os.getenv("LB_PROJECT_ID") #labelbox project id
 ## Generate API key: https://app.labelbox.com/account/api-keys
 LB_API_KEY = os.getenv("LB_API_KEY")
 
+### Uncomment the object detection example to use with object detection projects
 client = lb.Client(LB_API_KEY, "https://api.labelbox.com/graphql")
+
+## Get labelbox project
+PROJECT_ID=next(client.get_projects(where=(Project.name == "Vessel detection"))).uid #labelbox project id
 
 ## Get labelbox project
 project = client.get_project(PROJECT_ID)

@@ -1,4 +1,5 @@
-import labelbox
+import labelbox as lb
+from labelbox import Project
 from labelbox import Dataset
 import os
 from datetime import datetime
@@ -12,10 +13,16 @@ inputs = {
 
 valohai.prepare(step="process-new-data", default_inputs=inputs, image="python:3.9")
 
+## Generate API key: https://app.labelbox.com/account/api-keys
 LB_API_KEY = os.getenv("LB_API_KEY")
-PROJECT_ID = os.getenv("LB_PROJECT_ID")
 
-client = labelbox.Client(LB_API_KEY)
+### Uncomment the object detection example to use with object detection projects
+client = lb.Client(LB_API_KEY, "https://api.labelbox.com/graphql")
+
+## Get labelbox project
+PROJECT_ID=next(client.get_projects(where=(Project.name == "Vessel detection"))).uid #labelbox project id
+
+project = client.get_project(PROJECT_ID)
 
 ## Get labelbox project
 project = client.get_project(PROJECT_ID)
