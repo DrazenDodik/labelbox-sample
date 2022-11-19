@@ -1,0 +1,83 @@
+- step:
+    name: autolabel
+    image: drazend/labelbox
+    command:
+    - pip3 install -r requirements.txt
+    - python3 ./model_autolabel.py {parameters}
+    inputs:
+    - name: model
+      default: datum://production-model
+      optional: false
+    environment: aws-eu-west-1-p3-2xlarge
+- step:
+    name: generate-labeled-data
+    image: drazend/labelbox
+    command:
+    - pip3 install -r requirements.txt
+    - pip3 install labelbox[data]
+    - python3 ./generate_annotated_data.py {parameters}
+    environment: aws-eu-west-1-p3-2xlarge
+- step:
+    name: inference
+    image: drazend/labelbox
+    command:
+    - pip3 install -r requirements.txt
+    - python3 ./inference.py {parameters}
+    inputs:
+    - name: images
+      default:
+      - s3://labelbox-sample/raw-images/146.jpg
+      optional: false
+    - name: model
+      default: s3://labelbox-sample/data/01GJ2/01GJ2SX22WC9CD6P6AGGWDXNGN/output-182/model_final.pth
+      optional: false
+    environment: aws-eu-west-1-p3-2xlarge
+- step:
+    name: process-new-data
+    image: python:3.9
+    command:
+    - pip3 install -r requirements.txt
+    - python3 ./process_new_data.py {parameters}
+    inputs:
+    - name: images
+      default: s3://labelbox-sample/raw-images/146.jpg
+      optional: false
+- step:
+    name: train
+    image: drazend/labelbox
+    command:
+    - python3 -m pip install -r requirements.txt
+    - python3 -m pip install git+https://github.com/cocodataset/cocoapi.git#subdirectory=PythonAPI
+      --force
+    - python3 ./train.py {parameters}
+    parameters:
+    - name: datarow_id
+      multiple-separator: ','
+      optional: true
+      type: string
+    environment: aws-eu-west-1-p3-2xlarge
+- pipeline:
+    name: train-and-autolabel
+    nodes:
+    - name: train
+      type: execution
+      step: train
+    - name: autolabel
+      type: execution
+      step: autolabel
+    edges:
+    - [train.output.*.pth, autolabel.input.model]
+- pipeline:
+    name: new-data-and-train
+    nodes:
+    - name: process-new-data
+      type: execution
+      step: process-new-data
+    - name: train
+      type: execution
+      step: train
+      actions:
+        - when: node-starting
+          then: require-approval
+    edges:
+    - [process-new-data.metadata.datarow_id, train.parameter.datarow_id]
